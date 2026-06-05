@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed:quranic-family": "ts-node -O \"{\\\"module\\\": \\\"commonjs\\\"}\" prisma/seed-quranic-family-guidance-book.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
