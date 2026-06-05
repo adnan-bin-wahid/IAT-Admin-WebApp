@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, X } from "lucide-react";
 import { archiveDuaBook } from "@/server/actions/dua-book-actions";
 import { archiveDuaIndex } from "@/server/actions/dua-index-actions";
+import { archiveDuaItem } from "@/server/actions/dua-item-actions";
 import { toast } from "sonner";
 
 interface ArchiveConfirmDialogProps {
@@ -11,7 +12,7 @@ interface ArchiveConfirmDialogProps {
   onClose: () => void;
   id: string;
   name: string;
-  type: "book" | "index";
+  type: "book" | "index" | "dua";
   onSuccess?: () => void;
 }
 
@@ -50,9 +51,12 @@ export function ArchiveConfirmDialog({
       if (type === "book") {
         await archiveDuaBook(id);
         toast.success("Book archived successfully");
-      } else {
+      } else if (type === "index") {
         await archiveDuaIndex(id);
         toast.success("Index archived successfully");
+      } else {
+        await archiveDuaItem(id);
+        toast.success("Dua archived successfully");
       }
       onSuccess?.();
       onClose();
@@ -101,7 +105,9 @@ export function ArchiveConfirmDialog({
             <p className="text-[11px] text-amber-700 font-semibold leading-relaxed">
               {type === "book"
                 ? "Archiving this book will hide it from the default library view. It will not permanently delete its indexes or duas."
-                : "Archiving this index will hide it from the default library view. It will not permanently delete its duas."}
+                : type === "index"
+                ? "Archiving this index will hide it from the default library view. It will not permanently delete its duas."
+                : "Archiving this dua will hide it from the default library view. It will not permanently delete the content."}
             </p>
           </div>
         </div>

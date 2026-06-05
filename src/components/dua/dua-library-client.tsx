@@ -10,6 +10,7 @@ import { DuaBookWithIndexes, DuaIndexWithItems, DuaItemWithCategory, DuaCategory
 import { BookFormDialog } from "./book-form-dialog";
 import { IndexFormDialog } from "./index-form-dialog";
 import { CategoryFormDialog } from "./category-form-dialog";
+import { DuaItemFormDialog } from "./dua-item-form-dialog";
 import { CategoryList } from "./category-list";
 import { Toaster } from "sonner";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,7 @@ export function DuaLibraryClient({ initialBooks, initialCategories }: DuaLibrary
   const [isAddBookOpen, setIsAddBookOpen] = useState(false);
   const [isAddIndexOpen, setIsAddIndexOpen] = useState(false);
   const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
+  const [isAddDuaOpen, setIsAddDuaOpen] = useState(false);
   const [activeView, setActiveView] = useState<"tree" | "categories">("tree");
 
   // Resolve selectedItem during render to avoid synchronous state synchronization in useEffect
@@ -63,14 +65,17 @@ export function DuaLibraryClient({ initialBooks, initialCategories }: DuaLibrary
     status: b.status,
   }));
 
-  // Determine pre-selected book ID for the Add Index dialog based on selection context
+  // Determine pre-selected book and index IDs for dialogs based on selection context
   let defaultBookId: string | null = null;
+  let defaultIndexId: string | null = null;
   if (selectedType === "book" && selectedItem) {
     defaultBookId = selectedItem.id;
   } else if (selectedType === "index" && selectedItem) {
     defaultBookId = (selectedItem as DuaIndexWithItems).bookId;
+    defaultIndexId = selectedItem.id;
   } else if (selectedType === "dua" && selectedItem) {
     defaultBookId = (selectedItem as DuaItemWithCategory).bookId;
+    defaultIndexId = (selectedItem as DuaItemWithCategory).indexId;
   }
 
   const handleSelectNode = (
@@ -162,7 +167,10 @@ export function DuaLibraryClient({ initialBooks, initialCategories }: DuaLibrary
                 >
                   <Plus className="h-3.5 w-3.5" /> Index
                 </button>
-                <button className="bg-slate-100 text-slate-400 cursor-not-allowed font-medium py-1.5 px-3 rounded-xl text-xs border border-slate-200/50 flex items-center gap-1" disabled>
+                <button
+                  onClick={() => setIsAddDuaOpen(true)}
+                  className="bg-[#022c22] text-white hover:opacity-90 font-medium py-1.5 px-3 rounded-xl text-xs shadow-sm flex items-center gap-1 cursor-pointer"
+                >
                   <Plus className="h-3.5 w-3.5" /> Dua
                 </button>
               </>
@@ -246,7 +254,13 @@ export function DuaLibraryClient({ initialBooks, initialCategories }: DuaLibrary
             {/* Right Inspector Panel */}
             <div className="lg:col-span-3 min-h-[50vh]">
               {selectedType && selectedItem ? (
-                <DuaDetailPanel selectedType={selectedType} selectedItem={selectedItem} books={bookOptions} />
+                <DuaDetailPanel
+                  selectedType={selectedType}
+                  selectedItem={selectedItem}
+                  books={bookOptions}
+                  allBooks={initialBooks}
+                  categories={initialCategories}
+                />
               ) : (
                 <DuaEmptyState />
               )}
@@ -272,6 +286,15 @@ export function DuaLibraryClient({ initialBooks, initialCategories }: DuaLibrary
       <CategoryFormDialog
         isOpen={isAddCategoryOpen}
         onClose={() => setIsAddCategoryOpen(false)}
+      />
+
+      <DuaItemFormDialog
+        isOpen={isAddDuaOpen}
+        onClose={() => setIsAddDuaOpen(false)}
+        books={initialBooks}
+        categories={initialCategories}
+        defaultBookId={defaultBookId}
+        defaultIndexId={defaultIndexId}
       />
       
       <Toaster richColors position="top-right" />

@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { StatusBadge } from "@/components/common/status-badge";
 import { Calendar, Eye, EyeOff, Edit, Plus, Archive, Check } from "lucide-react";
-import { DuaBookWithIndexes, DuaIndexWithItems, DuaItemWithCategory } from "@/types/dua";
+import { DuaBookWithIndexes, DuaIndexWithItems, DuaItemWithCategory, DuaCategoryWithCount } from "@/types/dua";
 import { BookFormDialog } from "./book-form-dialog";
 import { IndexFormDialog } from "./index-form-dialog";
+import { DuaItemFormDialog } from "./dua-item-form-dialog";
 import { ArchiveConfirmDialog } from "./archive-confirm-dialog";
 import { publishDuaBook, unpublishDuaBook } from "@/server/actions/dua-book-actions";
 import { publishDuaIndex, unpublishDuaIndex } from "@/server/actions/dua-index-actions";
+import { publishDuaItem, unpublishDuaItem } from "@/server/actions/dua-item-actions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +16,8 @@ interface DuaDetailPanelProps {
   selectedType: "book" | "index" | "dua" | null;
   selectedItem: DuaBookWithIndexes | DuaIndexWithItems | DuaItemWithCategory;
   books?: { id: string; nameEn: string; nameBn: string; status: string }[];
+  allBooks?: DuaBookWithIndexes[];
+  categories?: DuaCategoryWithCount[];
 }
 
 // Declared outside components to avoid React render-time reset issues
@@ -40,10 +44,17 @@ function DetailRow({ label, value, bnValue, isTextarea = false }: { label: strin
   );
 }
 
-export function DuaDetailPanel({ selectedType, selectedItem, books = [] }: DuaDetailPanelProps) {
+export function DuaDetailPanel({
+  selectedType,
+  selectedItem,
+  books = [],
+  allBooks = [],
+  categories = [],
+}: DuaDetailPanelProps) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [isAddIndexOpen, setIsAddIndexOpen] = useState(false);
+  const [isAddDuaOpen, setIsAddDuaOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
 
   const handlePublish = async () => {
@@ -96,6 +107,34 @@ export function DuaDetailPanel({ selectedType, selectedItem, books = [] }: DuaDe
       toast.success("Index unpublished successfully");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to unpublish index";
+      toast.error(message);
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const handlePublishDua = async () => {
+    if (selectedType !== "dua" || !selectedItem) return;
+    setIsPublishing(true);
+    try {
+      await publishDuaItem(selectedItem.id);
+      toast.success("Dua published successfully");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to publish dua";
+      toast.error(message);
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const handleUnpublishDua = async () => {
+    if (selectedType !== "dua" || !selectedItem) return;
+    setIsPublishing(true);
+    try {
+      await unpublishDuaItem(selectedItem.id);
+      toast.success("Dua unpublished successfully");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to unpublish dua";
       toast.error(message);
     } finally {
       setIsPublishing(false);
@@ -289,8 +328,8 @@ export function DuaDetailPanel({ selectedType, selectedItem, books = [] }: DuaDe
               <Edit className="h-3.5 w-3.5" /> Edit Index
             </button>
             <button
-              className="flex-1 min-w-[120px] bg-slate-50 text-slate-400 border border-slate-200 cursor-not-allowed font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5"
-              disabled
+              onClick={() => setIsAddDuaOpen(true)}
+              className="flex-1 min-w-[120px] bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" /> Add Dua
             </button>
@@ -336,17 +375,53 @@ export function DuaDetailPanel({ selectedType, selectedItem, books = [] }: DuaDe
           </>
         )}
 
-        {isDua && (
+        {isDua && dua && (
           <>
-            <button className="flex-1 min-w-[120px] bg-slate-50 text-slate-400 border border-slate-200 cursor-not-allowed font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5" disabled>
+            <button
+              onClick={() => setIsEditOpen(true)}
+              className="flex-1 min-w-[120px] bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+            >
               <Edit className="h-3.5 w-3.5" /> Edit Dua
             </button>
-            <button className="flex-1 min-w-[120px] bg-slate-50 text-slate-400 border border-slate-200 cursor-not-allowed font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5" disabled>
+            <button
+              onClick={() => setIsArchiveOpen(true)}
+              disabled={dua.status === "archived"}
+              className={cn(
+                "flex-1 min-w-[120px] font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5",
+                dua.status === "archived"
+                  ? "bg-slate-50 text-slate-300 border border-slate-100 cursor-not-allowed"
+                  : "bg-white border border-red-100 text-red-600 hover:bg-red-50 cursor-pointer"
+              )}
+            >
               <Archive className="h-3.5 w-3.5" /> Archive Dua
             </button>
-            <button className="flex-1 min-w-[120px] bg-slate-50 text-slate-400 border border-slate-200 cursor-not-allowed font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5" disabled>
-              <Check className="h-3.5 w-3.5" /> Unpublish
-            </button>
+            {dua.status === "published" ? (
+              <button
+                onClick={handleUnpublishDua}
+                disabled={isPublishing}
+                className="flex-1 min-w-[120px] bg-[#022c22] text-white hover:opacity-90 font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {isPublishing ? (
+                  <span className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin shrink-0" />
+                ) : (
+                  <Check className="h-3.5 w-3.5" />
+                )}
+                Unpublish
+              </button>
+            ) : (
+              <button
+                onClick={handlePublishDua}
+                disabled={isPublishing}
+                className="flex-1 min-w-[120px] bg-[#022c22] text-white hover:opacity-90 font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {isPublishing ? (
+                  <span className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin shrink-0" />
+                ) : (
+                  <Check className="h-3.5 w-3.5" />
+                )}
+                Publish Dua
+              </button>
+            )}
           </>
         )}
       </div>
@@ -417,6 +492,65 @@ export function DuaDetailPanel({ selectedType, selectedItem, books = [] }: DuaDe
             id={index.id}
             name={index.titleEn}
             type="index"
+          />
+          <DuaItemFormDialog
+            isOpen={isAddDuaOpen}
+            onClose={() => setIsAddDuaOpen(false)}
+            books={allBooks}
+            categories={categories}
+            defaultBookId={index.bookId}
+            defaultIndexId={index.id}
+          />
+        </>
+      )}
+
+      {isDua && dua && (
+        <>
+          <DuaItemFormDialog
+            isOpen={isEditOpen}
+            onClose={() => setIsEditOpen(false)}
+            books={allBooks}
+            categories={categories}
+            initialData={{
+              id: dua.id,
+              bookId: dua.bookId,
+              indexId: dua.indexId,
+              categoryId: dua.categoryId,
+              titleBn: dua.titleBn,
+              titleEn: dua.titleEn,
+              slug: dua.slug,
+              shortDescriptionBn: dua.shortDescriptionBn || "",
+              shortDescriptionEn: dua.shortDescriptionEn || "",
+              arabicText: dua.arabicText || "",
+              banglaMeaning: dua.banglaMeaning || "",
+              englishMeaning: dua.englishMeaning || "",
+              transliterationBn: dua.transliterationBn || "",
+              transliterationEn: dua.transliterationEn || "",
+              referenceBn: dua.referenceBn || "",
+              referenceEn: dua.referenceEn || "",
+              benefitsBn: dua.benefitsBn || "",
+              benefitsEn: dua.benefitsEn || "",
+              notesBn: dua.notesBn || "",
+              notesEn: dua.notesEn || "",
+              repeatCount: dua.repeatCount,
+              tagsBn: dua.tagsBn || [],
+              tagsEn: dua.tagsEn || [],
+              searchKeywordsBn: dua.searchKeywordsBn || "",
+              searchKeywordsEn: dua.searchKeywordsEn || "",
+              displayOrder: dua.displayOrder,
+              status: dua.status as "draft" | "published" | "archived",
+              isVisibleInApp: dua.isVisibleInApp,
+              version: dua.version,
+              createdAt: dua.createdAt,
+              updatedAt: dua.updatedAt,
+            }}
+          />
+          <ArchiveConfirmDialog
+            isOpen={isArchiveOpen}
+            onClose={() => setIsArchiveOpen(false)}
+            id={dua.id}
+            name={dua.titleEn}
+            type="dua"
           />
         </>
       )}
