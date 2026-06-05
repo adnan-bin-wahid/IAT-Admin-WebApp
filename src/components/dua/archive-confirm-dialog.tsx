@@ -3,21 +3,24 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, X } from "lucide-react";
 import { archiveDuaBook } from "@/server/actions/dua-book-actions";
+import { archiveDuaIndex } from "@/server/actions/dua-index-actions";
 import { toast } from "sonner";
 
 interface ArchiveConfirmDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  bookId: string;
-  bookName: string;
+  id: string;
+  name: string;
+  type: "book" | "index";
   onSuccess?: () => void;
 }
 
 export function ArchiveConfirmDialog({
   isOpen,
   onClose,
-  bookId,
-  bookName,
+  id,
+  name,
+  type,
   onSuccess,
 }: ArchiveConfirmDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,12 +47,17 @@ export function ArchiveConfirmDialog({
   const handleConfirm = async () => {
     setIsSubmitting(true);
     try {
-      await archiveDuaBook(bookId);
-      toast.success("Book archived successfully");
+      if (type === "book") {
+        await archiveDuaBook(id);
+        toast.success("Book archived successfully");
+      } else {
+        await archiveDuaIndex(id);
+        toast.success("Index archived successfully");
+      }
       onSuccess?.();
       onClose();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to archive book";
+      const message = err instanceof Error ? err.message : `Failed to archive ${type}`;
       toast.error(message);
     } finally {
       setIsSubmitting(false);
@@ -87,11 +95,13 @@ export function ArchiveConfirmDialog({
         {/* Content */}
         <div className="px-6 py-5 space-y-3">
           <p className="text-xs text-slate-600 leading-relaxed">
-            Are you sure you want to archive <span className="font-bold text-slate-800">&quot;{bookName}&quot;</span>?
+            Are you sure you want to archive the {type} <span className="font-bold text-slate-800">&quot;{name}&quot;</span>?
           </p>
           <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl">
             <p className="text-[11px] text-amber-700 font-semibold leading-relaxed">
-              Archiving this book will hide it from the default library view. It will not permanently delete its indexes or duas.
+              {type === "book"
+                ? "Archiving this book will hide it from the default library view. It will not permanently delete its indexes or duas."
+                : "Archiving this index will hide it from the default library view. It will not permanently delete its duas."}
             </p>
           </div>
         </div>

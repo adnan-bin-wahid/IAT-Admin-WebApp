@@ -3,14 +3,17 @@ import { StatusBadge } from "@/components/common/status-badge";
 import { Calendar, Eye, EyeOff, Edit, Plus, Archive, Check } from "lucide-react";
 import { DuaBookWithIndexes, DuaIndexWithItems, DuaItemWithCategory } from "@/types/dua";
 import { BookFormDialog } from "./book-form-dialog";
+import { IndexFormDialog } from "./index-form-dialog";
 import { ArchiveConfirmDialog } from "./archive-confirm-dialog";
 import { publishDuaBook, unpublishDuaBook } from "@/server/actions/dua-book-actions";
+import { publishDuaIndex, unpublishDuaIndex } from "@/server/actions/dua-index-actions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 interface DuaDetailPanelProps {
   selectedType: "book" | "index" | "dua" | null;
   selectedItem: DuaBookWithIndexes | DuaIndexWithItems | DuaItemWithCategory;
+  books?: { id: string; nameEn: string; nameBn: string; status: string }[];
 }
 
 // Declared outside components to avoid React render-time reset issues
@@ -37,9 +40,10 @@ function DetailRow({ label, value, bnValue, isTextarea = false }: { label: strin
   );
 }
 
-export function DuaDetailPanel({ selectedType, selectedItem }: DuaDetailPanelProps) {
+export function DuaDetailPanel({ selectedType, selectedItem, books = [] }: DuaDetailPanelProps) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+  const [isAddIndexOpen, setIsAddIndexOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
 
   const handlePublish = async () => {
@@ -64,6 +68,34 @@ export function DuaDetailPanel({ selectedType, selectedItem }: DuaDetailPanelPro
       toast.success("Book unpublished successfully");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to unpublish book";
+      toast.error(message);
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const handlePublishIndex = async () => {
+    if (selectedType !== "index" || !selectedItem) return;
+    setIsPublishing(true);
+    try {
+      await publishDuaIndex(selectedItem.id);
+      toast.success("Index published successfully");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to publish index";
+      toast.error(message);
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const handleUnpublishIndex = async () => {
+    if (selectedType !== "index" || !selectedItem) return;
+    setIsPublishing(true);
+    try {
+      await unpublishDuaIndex(selectedItem.id);
+      toast.success("Index unpublished successfully");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to unpublish index";
       toast.error(message);
     } finally {
       setIsPublishing(false);
@@ -201,8 +233,8 @@ export function DuaDetailPanel({ selectedType, selectedItem }: DuaDetailPanelPro
               <Edit className="h-3.5 w-3.5" /> Edit Book
             </button>
             <button
-              className="flex-1 min-w-[120px] bg-slate-50 text-slate-400 border border-slate-200 cursor-not-allowed font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5"
-              disabled
+              onClick={() => setIsAddIndexOpen(true)}
+              className="flex-1 min-w-[120px] bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" /> Add Index
             </button>
@@ -248,17 +280,59 @@ export function DuaDetailPanel({ selectedType, selectedItem }: DuaDetailPanelPro
           </>
         )}
 
-        {isIndex && (
+        {isIndex && index && (
           <>
-            <button className="flex-1 min-w-[120px] bg-slate-50 text-slate-400 border border-slate-200 cursor-not-allowed font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5" disabled>
+            <button
+              onClick={() => setIsEditOpen(true)}
+              className="flex-1 min-w-[120px] bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+            >
               <Edit className="h-3.5 w-3.5" /> Edit Index
             </button>
-            <button className="flex-1 min-w-[120px] bg-slate-50 text-slate-400 border border-slate-200 cursor-not-allowed font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5" disabled>
+            <button
+              className="flex-1 min-w-[120px] bg-slate-50 text-slate-400 border border-slate-200 cursor-not-allowed font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5"
+              disabled
+            >
               <Plus className="h-3.5 w-3.5" /> Add Dua
             </button>
-            <button className="flex-1 min-w-[120px] bg-slate-50 text-slate-400 border border-slate-200 cursor-not-allowed font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5" disabled>
+            <button
+              onClick={() => setIsArchiveOpen(true)}
+              disabled={index.status === "archived"}
+              className={cn(
+                "flex-1 min-w-[120px] font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5",
+                index.status === "archived"
+                  ? "bg-slate-50 text-slate-300 border border-slate-100 cursor-not-allowed"
+                  : "bg-white border border-red-100 text-red-600 hover:bg-red-50 cursor-pointer"
+              )}
+            >
               <Archive className="h-3.5 w-3.5" /> Archive Index
             </button>
+            {index.status === "published" ? (
+              <button
+                onClick={handleUnpublishIndex}
+                disabled={isPublishing}
+                className="flex-1 min-w-[120px] bg-[#022c22] text-white hover:opacity-90 font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {isPublishing ? (
+                  <span className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin shrink-0" />
+                ) : (
+                  <Check className="h-3.5 w-3.5" />
+                )}
+                Unpublish
+              </button>
+            ) : (
+              <button
+                onClick={handlePublishIndex}
+                disabled={isPublishing}
+                className="flex-1 min-w-[120px] bg-[#022c22] text-white hover:opacity-90 font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {isPublishing ? (
+                  <span className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin shrink-0" />
+                ) : (
+                  <Check className="h-3.5 w-3.5" />
+                )}
+                Publish Index
+              </button>
+            )}
           </>
         )}
 
@@ -299,11 +373,50 @@ export function DuaDetailPanel({ selectedType, selectedItem }: DuaDetailPanelPro
               isVisibleInApp: book.isVisibleInApp,
             }}
           />
+          <IndexFormDialog
+            isOpen={isAddIndexOpen}
+            onClose={() => setIsAddIndexOpen(false)}
+            books={books}
+            defaultBookId={book.id}
+          />
           <ArchiveConfirmDialog
             isOpen={isArchiveOpen}
             onClose={() => setIsArchiveOpen(false)}
-            bookId={book.id}
-            bookName={book.nameEn}
+            id={book.id}
+            name={book.nameEn}
+            type="book"
+          />
+        </>
+      )}
+
+      {isIndex && index && (
+        <>
+          <IndexFormDialog
+            isOpen={isEditOpen}
+            onClose={() => setIsEditOpen(false)}
+            books={books}
+            initialData={{
+              id: index.id,
+              bookId: index.bookId,
+              titleBn: index.titleBn,
+              titleEn: index.titleEn,
+              slug: index.slug,
+              subtitleBn: index.subtitleBn || "",
+              subtitleEn: index.subtitleEn || "",
+              descriptionBn: index.descriptionBn || "",
+              descriptionEn: index.descriptionEn || "",
+              icon: index.icon || "Folder",
+              displayOrder: index.displayOrder,
+              status: index.status as "draft" | "published" | "archived",
+              isVisibleInApp: index.isVisibleInApp,
+            }}
+          />
+          <ArchiveConfirmDialog
+            isOpen={isArchiveOpen}
+            onClose={() => setIsArchiveOpen(false)}
+            id={index.id}
+            name={index.titleEn}
+            type="index"
           />
         </>
       )}
