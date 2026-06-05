@@ -95,6 +95,7 @@ export async function getDuaTree() {
           { createdAt: "asc" },
         ],
         include: {
+          book: true,
           _count: {
             select: {
               duaItems: true,
@@ -107,6 +108,8 @@ export async function getDuaTree() {
             ],
             include: {
               category: true,
+              book: true,
+              index: true,
             },
           },
         },
