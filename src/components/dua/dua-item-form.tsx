@@ -4,11 +4,12 @@ import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { duaItemSchema, DuaItemInput } from "@/server/validations/dua-item-schema";
+import { DuaItemInput } from "@/server/validations/dua-item-schema";
 import { generateSlug } from "@/lib/slug";
 import { cn } from "@/lib/utils";
 import { AlertCircle, Eye, EyeOff, BookOpen, Compass, Tag, Calendar, ShieldCheck } from "lucide-react";
 import { CategorySelect } from "./category-select";
+import { MobileDuaPreview } from "./mobile-dua-preview";
 import { DuaBookWithIndexes, DuaCategoryWithCount } from "@/types/dua";
 
 const duaItemFormSchema = z.object({
@@ -42,9 +43,9 @@ const duaItemFormSchema = z.object({
   tagsEnString: z.string().optional().nullable(),
   searchKeywordsBn: z.string().optional().nullable(),
   searchKeywordsEn: z.string().optional().nullable(),
-  displayOrder: z.number().int().default(0),
-  status: z.enum(["draft", "published", "archived"]).default("draft"),
-  isVisibleInApp: z.boolean().default(true),
+  displayOrder: z.number().int(),
+  status: z.enum(["draft", "published", "archived"]),
+  isVisibleInApp: z.boolean(),
 });
 
 type DuaItemFormValues = z.infer<typeof duaItemFormSchema>;
@@ -73,7 +74,7 @@ export function DuaItemForm({
   defaultIndexId,
 }: DuaItemFormProps) {
   const isEditMode = !!initialData;
-  const [activeTab, setActiveTab] = useState<"basic" | "bangla" | "english" | "arabic" | "metadata">("basic");
+  const [activeTab, setActiveTab] = useState<"basic" | "bangla" | "english" | "arabic" | "metadata" | "preview">("basic");
   const [slugManualOverride, setSlugManualOverride] = useState(isEditMode);
 
   // Filter archived books in selector, sorting non-archived first
@@ -156,7 +157,17 @@ export function DuaItemForm({
   const selectedIndexId = watch("indexId");
   const selectedCategoryId = watch("categoryId");
   const titleEn = watch("titleEn");
+  const titleBn = watch("titleBn");
   const arabicText = watch("arabicText");
+  const repeatCount = watch("repeatCount") || 1;
+  const banglaMeaning = watch("banglaMeaning");
+  const englishMeaning = watch("englishMeaning");
+  const transliterationBn = watch("transliterationBn");
+  const transliterationEn = watch("transliterationEn");
+  const referenceBn = watch("referenceBn");
+  const referenceEn = watch("referenceEn");
+  const notesBn = watch("notesBn");
+  const notesEn = watch("notesEn");
 
   // Get indexes for the selected book dynamically
   const availableIndexes = useMemo(() => {
@@ -236,6 +247,7 @@ export function DuaItemForm({
     { id: "english", label: "English Content" },
     { id: "arabic", label: "Arabic & Meaning" },
     { id: "metadata", label: "Metadata & Info" },
+    { id: "preview", label: "App Live Preview" },
   ] as const;
 
   // Resolve badge/info values for Preview
@@ -746,6 +758,28 @@ export function DuaItemForm({
           <div className="p-3 bg-amber-50 border border-amber-100 rounded-2xl text-[10px] text-amber-800 font-semibold leading-relaxed">
             Note: All changes made to Duas will increment versions automatically. These updates are indexed directly for mobile client synchronization on downstream Flutter applications.
           </div>
+        </div>
+      )}
+
+      {activeTab === "preview" && (
+        <div className="space-y-4 animate-fade-in pb-4">
+          <MobileDuaPreview
+            titleEn={titleEn}
+            titleBn={titleBn}
+            categoryNameEn={currentCategory?.nameEn}
+            categoryNameBn={currentCategory?.nameBn}
+            categoryColor={currentCategory?.color}
+            arabicText={arabicText}
+            repeatCount={repeatCount}
+            banglaMeaning={banglaMeaning}
+            englishMeaning={englishMeaning}
+            transliterationBn={transliterationBn}
+            transliterationEn={transliterationEn}
+            referenceBn={referenceBn}
+            referenceEn={referenceEn}
+            notesBn={notesBn}
+            notesEn={notesEn}
+          />
         </div>
       )}
 

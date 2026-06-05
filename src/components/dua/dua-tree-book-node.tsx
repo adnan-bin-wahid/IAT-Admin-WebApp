@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { BookOpen, ChevronDown, ChevronRight } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronRight, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DuaTreeIndexNode } from "./dua-tree-index-node";
 import { DuaNodeBadge } from "./dua-node-badge";
+import { StatusBadge } from "@/components/common/status-badge";
 import { DuaBookWithIndexes, DuaIndexWithItems, DuaItemWithCategory } from "@/types/dua";
 
 interface DuaTreeBookNodeProps {
@@ -16,7 +16,9 @@ interface DuaTreeBookNodeProps {
     id: string,
     data: DuaBookWithIndexes | DuaIndexWithItems | DuaItemWithCategory
   ) => void;
-  defaultExpanded?: boolean;
+  isExpanded: boolean;
+  onToggleExpand: (id: string) => void;
+  expandedIds: Set<string>;
 }
 
 export function DuaTreeBookNode({
@@ -24,48 +26,31 @@ export function DuaTreeBookNode({
   selectedId,
   selectedType,
   onSelectNode,
-  defaultExpanded = false,
+  isExpanded,
+  onToggleExpand,
+  expandedIds,
 }: DuaTreeBookNodeProps) {
-  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
-  const [prevDefaultExpanded, setPrevDefaultExpanded] = useState(defaultExpanded);
-  const [prevSelectedId, setPrevSelectedId] = useState(selectedId);
-
   const isSelected = selectedType === "book" && selectedId === bookNode.id;
   const indexCount = bookNode.indexes?.length || 0;
   
   // Calculate total Duas count under this book
-  const totalDuasCount = bookNode._count?.duaItems !== undefined
-    ? bookNode._count.duaItems
-    : (bookNode.indexes?.reduce((sum: number, idx: DuaIndexWithItems) => sum + (idx.duaItems?.length || 0), 0) || 0);
-
-  // Sync state during render
-  if (defaultExpanded !== prevDefaultExpanded) {
-    setPrevDefaultExpanded(defaultExpanded);
-    if (defaultExpanded) {
-      setIsExpanded(true);
-    }
-  }
-
-  const hasActiveChildIndex = bookNode.indexes?.some((idx: DuaIndexWithItems) => {
-    const isIndexActive = selectedType === "index" && selectedId === idx.id;
-    const isDuaActive = selectedType === "dua" && idx.duaItems?.some((d: DuaItemWithCategory) => d.id === selectedId);
-    return isIndexActive || isDuaActive;
-  });
-
-  if (selectedId !== prevSelectedId) {
-    setPrevSelectedId(selectedId);
-    if (hasActiveChildIndex) {
-      setIsExpanded(true);
-    }
-  }
+  const totalDuasCount = bookNode.indexes?.reduce(
+    (sum: number, idx: DuaIndexWithItems) => sum + (idx.duaItems?.length || 0),
+    0
+  ) || 0;
 
   const toggleExpand = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsExpanded(!isExpanded);
+    onToggleExpand(bookNode.id);
   };
 
   return (
-    <div className="space-y-1 bg-white p-2 rounded-2xl border border-slate-100/60 shadow-sm">
+    <div
+      className={cn(
+        "space-y-1 bg-white p-2 rounded-2xl border border-slate-100/60 shadow-sm transition-all duration-200",
+        bookNode.status === "archived" && "opacity-60 bg-slate-50/50"
+      )}
+    >
       {/* Node Header */}
       <div
         onClick={() => onSelectNode("book", bookNode.id, bookNode)}
@@ -79,6 +64,7 @@ export function DuaTreeBookNode({
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {/* Chevron expander */}
           <button
+            type="button"
             onClick={toggleExpand}
             className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
           >
@@ -89,33 +75,59 @@ export function DuaTreeBookNode({
             )}
           </button>
 
-          <BookOpen className={cn("h-4.5 w-4.5 shrink-0", isSelected ? "text-emerald-700" : "text-emerald-900/80")} />
+          <BookOpen
+            className={cn(
+              "h-4.5 w-4.5 shrink-0",
+              isSelected ? "text-emerald-700" : "text-emerald-900/80"
+            )}
+          />
           
           <div className="flex flex-col min-w-0">
-            <span className="truncate leading-none font-semibold text-slate-800">{bookNode.nameEn}</span>
-            <span className="text-[10px] text-slate-400 truncate mt-1 font-medium">{bookNode.nameBn}</span>
+            <span className="truncate leading-none font-semibold text-slate-800">
+              {bookNode.nameEn}
+            </span>
+            <span className="text-[10px] text-slate-400 truncate mt-1 font-medium">
+              {bookNode.nameBn}
+            </span>
           </div>
         </div>
 
-        <div className="shrink-0 flex items-center gap-1.5">
+        <div className="shrink-0 flex items-center gap-2">
+          {/* Visibility indicator */}
+          {bookNode.isVisibleInApp ? (
+            <span title="Visible in App"><Eye className="h-3.5 w-3.5 text-emerald-600 shrink-0" /></span>
+          ) : (
+            <span title="Hidden from App"><EyeOff className="h-3.5 w-3.5 text-slate-400 shrink-0" /></span>
+          )}
+
+          {/* Status Badge */}
+          <StatusBadge status={bookNode.status} />
+
           <DuaNodeBadge label="Sections" count={indexCount} />
           <DuaNodeBadge label="Duas" count={totalDuasCount} />
         </div>
       </div>
 
       {/* Expanded Children */}
-      {isExpanded && bookNode.indexes && bookNode.indexes.length > 0 && (
+      {isExpanded && (
         <div className="space-y-1.5 mt-1 border-t border-slate-50 pt-1.5 pl-2">
-          {bookNode.indexes.map((idx: DuaIndexWithItems) => (
-            <DuaTreeIndexNode
-              key={idx.id}
-              indexNode={idx}
-              selectedId={selectedId}
-              selectedType={selectedType}
-              onSelectNode={onSelectNode}
-              defaultExpanded={defaultExpanded}
-            />
-          ))}
+          {bookNode.indexes && bookNode.indexes.length > 0 ? (
+            bookNode.indexes.map((idx: DuaIndexWithItems) => (
+              <DuaTreeIndexNode
+                key={idx.id}
+                indexNode={idx}
+                selectedId={selectedId}
+                selectedType={selectedType}
+                onSelectNode={onSelectNode}
+                isExpanded={expandedIds.has(idx.id)}
+                onToggleExpand={onToggleExpand}
+              />
+            ))
+          ) : (
+            <div className="text-[10px] text-slate-400 italic py-2 pl-12 font-medium">
+              No indexes inside this book
+            </div>
+          )}
         </div>
       )}
     </div>

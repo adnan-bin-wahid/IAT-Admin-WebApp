@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { Folder, ChevronDown, ChevronRight } from "lucide-react";
+import { Folder, ChevronDown, ChevronRight, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DuaTreeItemNode } from "./dua-tree-item-node";
 import { DuaNodeBadge } from "./dua-node-badge";
+import { StatusBadge } from "@/components/common/status-badge";
 import { DuaBookWithIndexes, DuaIndexWithItems, DuaItemWithCategory } from "@/types/dua";
 
 interface DuaTreeIndexNodeProps {
@@ -16,7 +16,8 @@ interface DuaTreeIndexNodeProps {
     id: string,
     data: DuaBookWithIndexes | DuaIndexWithItems | DuaItemWithCategory
   ) => void;
-  defaultExpanded?: boolean;
+  isExpanded: boolean;
+  onToggleExpand: (id: string) => void;
 }
 
 export function DuaTreeIndexNode({
@@ -24,38 +25,24 @@ export function DuaTreeIndexNode({
   selectedId,
   selectedType,
   onSelectNode,
-  defaultExpanded = false,
+  isExpanded,
+  onToggleExpand,
 }: DuaTreeIndexNodeProps) {
-  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
-  const [prevDefaultExpanded, setPrevDefaultExpanded] = useState(defaultExpanded);
-  const [prevSelectedId, setPrevSelectedId] = useState(selectedId);
-
   const isSelected = selectedType === "index" && selectedId === indexNode.id;
   const childDuasCount = indexNode.duaItems?.length || 0;
 
-  // Sync state during render
-  if (defaultExpanded !== prevDefaultExpanded) {
-    setPrevDefaultExpanded(defaultExpanded);
-    if (defaultExpanded) {
-      setIsExpanded(true);
-    }
-  }
-
-  const hasActiveChild = selectedType === "dua" && indexNode.duaItems?.some((d: DuaItemWithCategory) => d.id === selectedId);
-  if (selectedId !== prevSelectedId) {
-    setPrevSelectedId(selectedId);
-    if (hasActiveChild) {
-      setIsExpanded(true);
-    }
-  }
-
   const toggleExpand = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsExpanded(!isExpanded);
+    onToggleExpand(indexNode.id);
   };
 
   return (
-    <div className="space-y-1">
+    <div
+      className={cn(
+        "space-y-1 transition-all duration-200",
+        indexNode.status === "archived" && "opacity-60 bg-slate-50/20"
+      )}
+    >
       {/* Node Header */}
       <div
         onClick={() => onSelectNode("index", indexNode.id, indexNode)}
@@ -69,6 +56,7 @@ export function DuaTreeIndexNode({
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {/* Chevron expander */}
           <button
+            type="button"
             onClick={toggleExpand}
             className="p-0.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
           >
@@ -79,30 +67,53 @@ export function DuaTreeIndexNode({
             )}
           </button>
 
-          <Folder className={cn("h-4 w-4 shrink-0", isSelected ? "text-emerald-700" : "text-slate-400")} />
+          <Folder
+            className={cn(
+              "h-4 w-4 shrink-0",
+              isSelected ? "text-emerald-700" : "text-slate-400"
+            )}
+          />
           
           <div className="flex flex-col min-w-0">
             <span className="truncate leading-none">{indexNode.titleEn}</span>
-            <span className="text-[10px] text-slate-400 truncate mt-1 font-medium">{indexNode.titleBn}</span>
+            <span className="text-[10px] text-slate-400 truncate mt-1 font-medium">
+              {indexNode.titleBn}
+            </span>
           </div>
         </div>
 
-        <div className="shrink-0 flex items-center gap-1.5">
+        <div className="shrink-0 flex items-center gap-2">
+          {/* Visibility indicator */}
+          {indexNode.isVisibleInApp ? (
+            <span title="Visible in App"><Eye className="h-3.5 w-3.5 text-emerald-600 shrink-0" /></span>
+          ) : (
+            <span title="Hidden from App"><EyeOff className="h-3.5 w-3.5 text-slate-400 shrink-0" /></span>
+          )}
+
+          {/* Status Badge */}
+          <StatusBadge status={indexNode.status} />
+
           <DuaNodeBadge label="Duas" count={childDuasCount} />
         </div>
       </div>
 
       {/* Expanded Children */}
-      {isExpanded && indexNode.duaItems && indexNode.duaItems.length > 0 && (
+      {isExpanded && (
         <div className="space-y-0.5 pl-4">
-          {indexNode.duaItems.map((dua: DuaItemWithCategory) => (
-            <DuaTreeItemNode
-              key={dua.id}
-              item={dua}
-              isSelected={selectedType === "dua" && selectedId === dua.id}
-              onSelect={() => onSelectNode("dua", dua.id, dua)}
-            />
-          ))}
+          {indexNode.duaItems && indexNode.duaItems.length > 0 ? (
+            indexNode.duaItems.map((dua: DuaItemWithCategory) => (
+              <DuaTreeItemNode
+                key={dua.id}
+                item={dua}
+                isSelected={selectedType === "dua" && selectedId === dua.id}
+                onSelect={() => onSelectNode("dua", dua.id, dua)}
+              />
+            ))
+          ) : (
+            <div className="text-[10px] text-slate-400 italic py-2 pl-12 font-medium">
+              No duas inside this index
+            </div>
+          )}
         </div>
       )}
     </div>

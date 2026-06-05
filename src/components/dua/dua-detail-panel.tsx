@@ -6,6 +6,7 @@ import { BookFormDialog } from "./book-form-dialog";
 import { IndexFormDialog } from "./index-form-dialog";
 import { DuaItemFormDialog } from "./dua-item-form-dialog";
 import { ArchiveConfirmDialog } from "./archive-confirm-dialog";
+import { MobileDuaPreview } from "./mobile-dua-preview";
 import { publishDuaBook, unpublishDuaBook } from "@/server/actions/dua-book-actions";
 import { publishDuaIndex, unpublishDuaIndex } from "@/server/actions/dua-index-actions";
 import { publishDuaItem, unpublishDuaItem } from "@/server/actions/dua-item-actions";
@@ -59,6 +60,8 @@ export function DuaDetailPanel({
 
   const handlePublish = async () => {
     if (selectedType !== "book" || !selectedItem) return;
+    const ok = window.confirm("Publishing this item will make it eligible for mobile app visibility if Visible in App is enabled.");
+    if (!ok) return;
     setIsPublishing(true);
     try {
       await publishDuaBook(selectedItem.id);
@@ -73,6 +76,8 @@ export function DuaDetailPanel({
 
   const handleUnpublish = async () => {
     if (selectedType !== "book" || !selectedItem) return;
+    const ok = window.confirm("Unpublishing this item will move it back to draft. It will no longer be eligible for mobile app publishing.");
+    if (!ok) return;
     setIsPublishing(true);
     try {
       await unpublishDuaBook(selectedItem.id);
@@ -87,6 +92,8 @@ export function DuaDetailPanel({
 
   const handlePublishIndex = async () => {
     if (selectedType !== "index" || !selectedItem) return;
+    const ok = window.confirm("Publishing this item will make it eligible for mobile app visibility if Visible in App is enabled.");
+    if (!ok) return;
     setIsPublishing(true);
     try {
       await publishDuaIndex(selectedItem.id);
@@ -101,6 +108,8 @@ export function DuaDetailPanel({
 
   const handleUnpublishIndex = async () => {
     if (selectedType !== "index" || !selectedItem) return;
+    const ok = window.confirm("Unpublishing this item will move it back to draft. It will no longer be eligible for mobile app publishing.");
+    if (!ok) return;
     setIsPublishing(true);
     try {
       await unpublishDuaIndex(selectedItem.id);
@@ -115,6 +124,8 @@ export function DuaDetailPanel({
 
   const handlePublishDua = async () => {
     if (selectedType !== "dua" || !selectedItem) return;
+    const ok = window.confirm("Publishing this item will make it eligible for mobile app visibility if Visible in App is enabled.");
+    if (!ok) return;
     setIsPublishing(true);
     try {
       await publishDuaItem(selectedItem.id);
@@ -129,6 +140,8 @@ export function DuaDetailPanel({
 
   const handleUnpublishDua = async () => {
     if (selectedType !== "dua" || !selectedItem) return;
+    const ok = window.confirm("Unpublishing this item will move it back to draft. It will no longer be eligible for mobile app publishing.");
+    if (!ok) return;
     setIsPublishing(true);
     try {
       await unpublishDuaItem(selectedItem.id);
@@ -200,27 +213,51 @@ export function DuaDetailPanel({
         {/* Detailed Fields */}
         <div className="space-y-1 overflow-y-auto max-h-[55vh] pr-1">
           {/* BOOK Fields */}
-          {book && (
-            <>
-              <DetailRow label="Slug" value={book.slug} />
-              <DetailRow label="Subtitle" value={book.subtitleEn} bnValue={book.subtitleBn} />
-              <DetailRow label="Description" value={book.descriptionEn} bnValue={book.descriptionBn} isTextarea />
-              <DetailRow label="Accent Color" value={book.accentColor} />
-              <DetailRow label="Total Indexes" value={book._count?.indexes ?? book.indexes?.length ?? 0} />
-              <DetailRow label="Total Duas" value={book._count?.duaItems ?? 0} />
-            </>
-          )}
+          {book && (() => {
+            const bookDuas = book.indexes?.flatMap((idx) => idx.duaItems) || [];
+            const publishedCount = bookDuas.filter((d) => d.status === "published").length;
+            const draftCount = bookDuas.filter((d) => d.status === "draft").length;
+            const archivedCount = bookDuas.filter((d) => d.status === "archived").length;
+
+            return (
+              <>
+                <DetailRow label="Slug" value={book.slug} />
+                <DetailRow label="Subtitle" value={book.subtitleEn} bnValue={book.subtitleBn} />
+                <DetailRow label="Description" value={book.descriptionEn} bnValue={book.descriptionBn} isTextarea />
+                <DetailRow label="Accent Color" value={book.accentColor} />
+                <DetailRow label="Total Indexes" value={book._count?.indexes ?? book.indexes?.length ?? 0} />
+                <DetailRow label="Total Duas" value={bookDuas.length} />
+                <div className="py-2.5 border-y border-slate-50 flex items-center text-[10px] gap-4 font-bold text-slate-500 bg-slate-50/50 px-3.5 rounded-xl my-2">
+                  <span className="flex items-center gap-1">Published: <span className="text-emerald-700 font-extrabold">{publishedCount}</span></span>
+                  <span className="flex items-center gap-1">Drafts: <span className="text-amber-600 font-extrabold">{draftCount}</span></span>
+                  <span className="flex items-center gap-1">Archived: <span className="text-red-500 font-extrabold">{archivedCount}</span></span>
+                </div>
+              </>
+            );
+          })()}
 
           {/* INDEX Fields */}
-          {index && (
-            <>
-              <DetailRow label="Slug" value={index.slug} />
-              <DetailRow label="Parent Book" value={index.book?.nameEn || "N/A"} />
-              <DetailRow label="Subtitle" value={index.subtitleEn} bnValue={index.subtitleBn} />
-              <DetailRow label="Description" value={index.descriptionEn} bnValue={index.descriptionBn} isTextarea />
-              <DetailRow label="Total Duas" value={index._count?.duaItems ?? index.duaItems?.length ?? 0} />
-            </>
-          )}
+          {index && (() => {
+            const indexDuas = index.duaItems || [];
+            const publishedCount = indexDuas.filter((d) => d.status === "published").length;
+            const draftCount = indexDuas.filter((d) => d.status === "draft").length;
+            const archivedCount = indexDuas.filter((d) => d.status === "archived").length;
+
+            return (
+              <>
+                <DetailRow label="Slug" value={index.slug} />
+                <DetailRow label="Parent Book" value={index.book?.nameEn || "N/A"} />
+                <DetailRow label="Subtitle" value={index.subtitleEn} bnValue={index.subtitleBn} />
+                <DetailRow label="Description" value={index.descriptionEn} bnValue={index.descriptionBn} isTextarea />
+                <DetailRow label="Total Duas" value={indexDuas.length} />
+                <div className="py-2.5 border-y border-slate-50 flex items-center text-[10px] gap-4 font-bold text-slate-500 bg-slate-50/50 px-3.5 rounded-xl my-2">
+                  <span className="flex items-center gap-1">Published: <span className="text-emerald-700 font-extrabold">{publishedCount}</span></span>
+                  <span className="flex items-center gap-1">Drafts: <span className="text-amber-600 font-extrabold">{draftCount}</span></span>
+                  <span className="flex items-center gap-1">Archived: <span className="text-red-500 font-extrabold">{archivedCount}</span></span>
+                </div>
+              </>
+            );
+          })()}
 
           {/* DUA Fields */}
           {dua && (
@@ -231,7 +268,7 @@ export function DuaDetailPanel({
               <DetailRow label="Category" value={dua.category?.nameEn} bnValue={dua.category?.nameBn} />
               <DetailRow label="Arabic Text" value={
                 dua.arabicText && (
-                  <p className="text-xl text-right font-medium text-[#022c22] leading-loose py-2 select-all" dir="rtl">
+                  <p className="text-xl text-right font-medium text-[#022c22] leading-loose py-2 select-all font-serif" dir="rtl">
                     {dua.arabicText}
                   </p>
                 )
@@ -244,6 +281,28 @@ export function DuaDetailPanel({
               <DetailRow label="Benefits" value={dua.benefitsEn} bnValue={dua.benefitsBn} isTextarea />
               <DetailRow label="Notes" value={dua.notesEn} bnValue={dua.notesBn} isTextarea />
               <DetailRow label="Tags" value={dua.tagsEn && dua.tagsEn.length > 0 ? dua.tagsEn.join(", ") : null} bnValue={dua.tagsBn && dua.tagsBn.length > 0 ? dua.tagsBn.join(", ") : null} />
+              
+              {/* App mobile preview mockup inside detail panel */}
+              <div className="pt-6 border-t border-slate-100 mt-6 animate-fade-in flex flex-col gap-3">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block pl-1">Mobile Preview Mockup</span>
+                <MobileDuaPreview
+                  titleEn={dua.titleEn}
+                  titleBn={dua.titleBn}
+                  categoryNameEn={dua.category?.nameEn}
+                  categoryNameBn={dua.category?.nameBn}
+                  categoryColor={dua.category?.color}
+                  arabicText={dua.arabicText}
+                  repeatCount={dua.repeatCount}
+                  banglaMeaning={dua.banglaMeaning}
+                  englishMeaning={dua.englishMeaning}
+                  transliterationBn={dua.transliterationBn}
+                  transliterationEn={dua.transliterationEn}
+                  referenceBn={dua.referenceBn}
+                  referenceEn={dua.referenceEn}
+                  notesBn={dua.notesBn}
+                  notesEn={dua.notesEn}
+                />
+              </div>
             </>
           )}
 

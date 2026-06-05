@@ -31,18 +31,21 @@ export default async function DashboardPage() {
             value={stats.totalBooks}
             icon={BookOpen}
             iconColor="text-emerald-700 bg-emerald-50 border border-emerald-100/50"
+            href="/dua?type=book"
           />
           <StatCard
             title="Total Indexes"
             value={stats.totalIndexes}
             icon={FolderTree}
             iconColor="text-teal-700 bg-teal-50 border border-teal-100/50"
+            href="/dua?type=index"
           />
           <StatCard
             title="Total Duas"
             value={stats.totalItems}
             icon={FileText}
             iconColor="text-amber-700 bg-amber-50 border border-amber-100/50"
+            href="/dua?type=dua"
           />
           <StatCard
             title="Categories"
@@ -64,24 +67,28 @@ export default async function DashboardPage() {
             value={stats.publishedItems}
             icon={CheckCircle2}
             iconColor="text-emerald-700 bg-emerald-50 border border-emerald-100/50"
+            href="/dua?type=dua&status=published"
           />
           <StatCard
             title="Draft Duas"
             value={stats.draftItems}
             icon={Clock}
             iconColor="text-amber-700 bg-amber-50 border border-amber-100/50"
+            href="/dua?type=dua&status=draft"
           />
           <StatCard
             title="Archived Duas"
             value={stats.archivedItems}
             icon={Archive}
             iconColor="text-slate-500 bg-slate-50 border border-slate-200"
+            href="/dua?type=dua&status=archived"
           />
           <StatCard
             title="Visible in App"
             value={stats.visibleItems}
             icon={Eye}
             iconColor="text-indigo-700 bg-indigo-50 border border-indigo-100/50"
+            href="/dua?type=dua&visibility=visible"
           />
         </div>
       </div>

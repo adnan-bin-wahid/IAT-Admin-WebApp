@@ -1,4 +1,4 @@
-import { FileText } from "lucide-react";
+import { FileText, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/components/common/status-badge";
 import { DuaItemWithCategory } from "@/types/dua";
@@ -20,7 +20,8 @@ export function DuaTreeItemNode({ item, isSelected, onSelect }: DuaTreeItemNodeP
         "group flex items-start justify-between gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200 cursor-pointer ml-4 pl-4 border-l border-slate-100",
         isSelected
           ? "bg-emerald-50/50 text-[#022c22] border-l-2 border-emerald-700 font-semibold"
-          : "text-slate-600 hover:text-[#022c22] hover:bg-slate-50/50"
+          : "text-slate-600 hover:text-[#022c22] hover:bg-slate-50/50",
+        item.status === "archived" && "opacity-60 bg-slate-50/10"
       )}
     >
       <div className="flex items-start gap-2.5 min-w-0 flex-1">
@@ -30,7 +31,12 @@ export function DuaTreeItemNode({ item, isSelected, onSelect }: DuaTreeItemNodeP
           <span className="text-[10px] text-slate-400 truncate mt-1 font-medium">{item.titleBn}</span>
         </div>
       </div>
-      <div className="shrink-0 flex items-center">
+      <div className="shrink-0 flex items-center gap-2">
+        {item.isVisibleInApp ? (
+          <span title="Visible in App"><Eye className="h-3 w-3 text-emerald-600 shrink-0" /></span>
+        ) : (
+          <span title="Hidden from App"><EyeOff className="h-3 w-3 text-slate-400 shrink-0" /></span>
+        )}
         <StatusBadge status={item.status} />
       </div>
     </div>

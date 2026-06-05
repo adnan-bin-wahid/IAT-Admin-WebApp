@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useTransition, useCallback } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
 import { DuaTree } from "./dua-tree";
 import { DuaDetailPanel } from "./dua-detail-panel";
@@ -14,6 +15,7 @@ import { DuaItemFormDialog } from "./dua-item-form-dialog";
 import { CategoryList } from "./category-list";
 import { Toaster } from "sonner";
 import { cn } from "@/lib/utils";
+import { DuaFilterBar } from "./dua-filter-bar";
 
 interface DuaLibraryClientProps {
   initialBooks: DuaBookWithIndexes[];
@@ -21,14 +23,59 @@ interface DuaLibraryClientProps {
 }
 
 export function DuaLibraryClient({ initialBooks, initialCategories }: DuaLibraryClientProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [, startTransition] = useTransition();
+
+  // URL search params as source of truth
+  const searchQuery = searchParams.get("q") || "";
+  const statusFilter = searchParams.get("status") || "all";
+  const visibilityFilter = searchParams.get("visibility") || "all";
+  const categoryFilter = searchParams.get("category") || "all";
+  const contentTypeFilter = searchParams.get("type") || "all";
+
   const [selectedType, setSelectedType] = useState<"book" | "index" | "dua" | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchVal, setSearchVal] = useState(searchQuery);
+
   const [isAddBookOpen, setIsAddBookOpen] = useState(false);
   const [isAddIndexOpen, setIsAddIndexOpen] = useState(false);
   const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
   const [isAddDuaOpen, setIsAddDuaOpen] = useState(false);
   const [activeView, setActiveView] = useState<"tree" | "categories">("tree");
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  // Sync searchVal with URL q if it changes externally (e.g. dashboard clicks)
+  const [prevSearchQuery, setPrevSearchQuery] = useState(searchQuery);
+  if (searchQuery !== prevSearchQuery) {
+    setPrevSearchQuery(searchQuery);
+    setSearchVal(searchQuery);
+  }
+
+  const updateFilters = useCallback((updates: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === "all" || value === "") {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    });
+    startTransition(() => {
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    });
+  }, [searchParams, pathname, router]);
+
+  // Debounce search query update
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchVal !== searchQuery) {
+        updateFilters({ q: searchVal || null });
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchVal, searchQuery, updateFilters]);
 
   // Resolve selectedItem during render to avoid synchronous state synchronization in useEffect
   let selectedItem: DuaBookWithIndexes | DuaIndexWithItems | DuaItemWithCategory | null = null;
@@ -86,64 +133,172 @@ export function DuaLibraryClient({ initialBooks, initialCategories }: DuaLibrary
     setSelectedId(id);
   };
 
-  // Client-side search algorithm
-  const filterTree = (books: DuaBookWithIndexes[], query: string): DuaBookWithIndexes[] => {
-    if (!query) return books;
-    const lowerQuery = query.toLowerCase().trim();
+  // Comprehensive recursive search and filter tree matching algorithm
+  const filterTree = (books: DuaBookWithIndexes[]): DuaBookWithIndexes[] => {
+    const query = searchQuery.toLowerCase().trim();
 
     return books
       .map((book) => {
-        const bookMatches =
-          book.nameEn.toLowerCase().includes(lowerQuery) ||
-          book.nameBn.toLowerCase().includes(lowerQuery) ||
-          (book.subtitleEn && book.subtitleEn.toLowerCase().includes(lowerQuery)) ||
-          (book.subtitleBn && book.subtitleBn.toLowerCase().includes(lowerQuery));
+        const bookTextMatch = !query ||
+          book.nameEn.toLowerCase().includes(query) ||
+          book.nameBn.toLowerCase().includes(query) ||
+          (book.subtitleEn && book.subtitleEn.toLowerCase().includes(query)) ||
+          (book.subtitleBn && book.subtitleBn.toLowerCase().includes(query));
+
+        const bookStatusMatch = statusFilter === "all" || book.status === statusFilter;
+        const bookVisibilityMatch = visibilityFilter === "all" ||
+          (visibilityFilter === "visible" ? book.isVisibleInApp : !book.isVisibleInApp);
+
+        const bookMatchesDirectly = bookTextMatch && bookStatusMatch && bookVisibilityMatch;
 
         // Filter indexes
         const filteredIndexes = book.indexes
-          .map((index: DuaIndexWithItems) => {
-            const indexMatches =
-              index.titleEn.toLowerCase().includes(lowerQuery) ||
-              index.titleBn.toLowerCase().includes(lowerQuery) ||
-              (index.subtitleEn && index.subtitleEn.toLowerCase().includes(lowerQuery)) ||
-              (index.subtitleBn && index.subtitleBn.toLowerCase().includes(lowerQuery));
+          .map((index) => {
+            const indexTextMatch = !query ||
+              index.titleEn.toLowerCase().includes(query) ||
+              index.titleBn.toLowerCase().includes(query) ||
+              (index.subtitleEn && index.subtitleEn.toLowerCase().includes(query)) ||
+              (index.subtitleBn && index.subtitleBn.toLowerCase().includes(query));
+
+            const indexStatusMatch = statusFilter === "all" || index.status === statusFilter;
+            const indexVisibilityMatch = visibilityFilter === "all" ||
+              (visibilityFilter === "visible" ? index.isVisibleInApp : !index.isVisibleInApp);
+
+            const indexMatchesDirectly = (bookTextMatch || indexTextMatch) && indexStatusMatch && indexVisibilityMatch;
 
             // Filter dua items
-            const filteredDuaItems = index.duaItems.filter((dua: DuaItemWithCategory) => {
-              const duaMatches =
-                dua.titleEn.toLowerCase().includes(lowerQuery) ||
-                dua.titleBn.toLowerCase().includes(lowerQuery) ||
-                (dua.referenceEn && dua.referenceEn.toLowerCase().includes(lowerQuery)) ||
-                (dua.referenceBn && dua.referenceBn.toLowerCase().includes(lowerQuery)) ||
-                (dua.category?.nameEn && dua.category.nameEn.toLowerCase().includes(lowerQuery)) ||
-                (dua.category?.nameBn && dua.category.nameBn.toLowerCase().includes(lowerQuery));
+            const filteredDuaItems = index.duaItems.filter((dua) => {
+              const duaTextMatch = !query ||
+                dua.titleEn.toLowerCase().includes(query) ||
+                dua.titleBn.toLowerCase().includes(query) ||
+                (dua.shortDescriptionEn && dua.shortDescriptionEn.toLowerCase().includes(query)) ||
+                (dua.shortDescriptionBn && dua.shortDescriptionBn.toLowerCase().includes(query)) ||
+                (dua.arabicText && dua.arabicText.toLowerCase().includes(query)) ||
+                (dua.banglaMeaning && dua.banglaMeaning.toLowerCase().includes(query)) ||
+                (dua.englishMeaning && dua.englishMeaning.toLowerCase().includes(query)) ||
+                (dua.transliterationEn && dua.transliterationEn.toLowerCase().includes(query)) ||
+                (dua.transliterationBn && dua.transliterationBn.toLowerCase().includes(query)) ||
+                (dua.referenceEn && dua.referenceEn.toLowerCase().includes(query)) ||
+                (dua.referenceBn && dua.referenceBn.toLowerCase().includes(query)) ||
+                (dua.category?.nameEn && dua.category.nameEn.toLowerCase().includes(query)) ||
+                (dua.category?.nameBn && dua.category.nameBn.toLowerCase().includes(query)) ||
+                (dua.tagsEn && dua.tagsEn.some((t) => t.toLowerCase().includes(query))) ||
+                (dua.tagsBn && dua.tagsBn.some((t) => t.toLowerCase().includes(query))) ||
+                (dua.searchKeywordsEn && dua.searchKeywordsEn.toLowerCase().includes(query)) ||
+                (dua.searchKeywordsBn && dua.searchKeywordsBn.toLowerCase().includes(query));
 
-              return duaMatches;
+              const duaTextPassed = bookTextMatch || indexTextMatch || duaTextMatch;
+
+              const duaStatusMatch = statusFilter === "all" || dua.status === statusFilter;
+              const duaVisibilityMatch = visibilityFilter === "all" ||
+                (visibilityFilter === "visible" ? dua.isVisibleInApp : !dua.isVisibleInApp);
+              const duaCategoryMatch = categoryFilter === "all" || dua.categoryId === categoryFilter;
+
+              return duaTextPassed && duaStatusMatch && duaVisibilityMatch && duaCategoryMatch;
             });
 
-            if (bookMatches || indexMatches || filteredDuaItems.length > 0) {
-              return {
-                ...index,
-                duaItems: bookMatches ? index.duaItems : filteredDuaItems,
-              } as DuaIndexWithItems;
+            if (contentTypeFilter === "book") return null;
+
+            if (contentTypeFilter === "dua") {
+              if (filteredDuaItems.length > 0) {
+                return { ...index, duaItems: filteredDuaItems } as DuaIndexWithItems;
+              }
+              return null;
             }
+
+            // contentTypeFilter is "all" or "index"
+            if (filteredDuaItems.length > 0) {
+              return { ...index, duaItems: filteredDuaItems } as DuaIndexWithItems;
+            }
+
+            if (indexMatchesDirectly && categoryFilter === "all") {
+              return { ...index, duaItems: [] } as DuaIndexWithItems;
+            }
+
             return null;
           })
           .filter(Boolean) as DuaIndexWithItems[];
 
-        if (bookMatches || filteredIndexes.length > 0) {
-          return {
-            ...book,
-            indexes: bookMatches ? book.indexes : filteredIndexes,
-          } as DuaBookWithIndexes;
+        // Determine if book should be included
+        if (contentTypeFilter === "index" || contentTypeFilter === "dua") {
+          if (filteredIndexes.length > 0) {
+            return { ...book, indexes: filteredIndexes } as DuaBookWithIndexes;
+          }
+          return null;
         }
+
+        // contentTypeFilter is "all" or "book"
+        if (filteredIndexes.length > 0) {
+          return { ...book, indexes: filteredIndexes } as DuaBookWithIndexes;
+        }
+
+        if (bookMatchesDirectly && categoryFilter === "all") {
+          return { ...book, indexes: [] } as DuaBookWithIndexes;
+        }
+
         return null;
       })
       .filter(Boolean) as DuaBookWithIndexes[];
   };
 
-  const filteredBooks = filterTree(initialBooks, searchQuery);
-  const isSearching = searchQuery.length > 0;
+  const filteredBooks = filterTree(initialBooks);
+
+  // Determine if searching/filtering is active
+  const isFilteringOrSearching =
+    searchQuery.length > 0 ||
+    statusFilter !== "all" ||
+    visibilityFilter !== "all" ||
+    categoryFilter !== "all" ||
+    contentTypeFilter !== "all";
+
+  // Auto-expand parents of matched children when filters/search query changes
+  const [lastFiltersKey, setLastFiltersKey] = useState("");
+  const currentFiltersKey = `${searchQuery}-${statusFilter}-${visibilityFilter}-${categoryFilter}-${contentTypeFilter}`;
+  if (currentFiltersKey !== lastFiltersKey) {
+    setLastFiltersKey(currentFiltersKey);
+    if (isFilteringOrSearching) {
+      const ids = new Set<string>();
+      filteredBooks.forEach((book) => {
+        if (book.indexes && book.indexes.length > 0) {
+          ids.add(book.id);
+          book.indexes.forEach((idx) => {
+            if (idx.duaItems && idx.duaItems.length > 0) {
+              ids.add(idx.id);
+            }
+          });
+        }
+      });
+      setExpandedIds(ids);
+    }
+  }
+
+  // Expansion controls
+  const handleExpandAll = () => {
+    const ids = new Set<string>();
+    filteredBooks.forEach((book) => {
+      ids.add(book.id);
+      book.indexes?.forEach((idx) => {
+        ids.add(idx.id);
+      });
+    });
+    setExpandedIds(ids);
+  };
+
+  const handleCollapseAll = () => {
+    setExpandedIds(new Set());
+  };
+
+  const handleToggleExpand = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -214,25 +369,52 @@ export function DuaLibraryClient({ initialBooks, initialCategories }: DuaLibrary
 
       {activeView === "tree" ? (
         <>
-          {/* Top Search Controls */}
-          <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between gap-4">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search books, indexes, duas..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2 pl-10 pr-4 text-sm outline-none transition-all placeholder:text-slate-400 focus:border-emerald-700 focus:bg-white focus:ring-1 focus:ring-emerald-700/20"
-              />
+          {/* Filters & Search Control Bar */}
+          <div className="space-y-4">
+            {/* Search Input Bar */}
+            <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search books, indexes, supplications (matches English, Bangla, Arabic, tags, reference, category)..."
+                  value={searchVal}
+                  onChange={(e) => setSearchVal(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2.5 pl-10 pr-10 text-sm outline-none transition-all placeholder:text-slate-400 focus:border-emerald-700 focus:bg-white focus:ring-1 focus:ring-emerald-700/20 font-medium text-slate-700"
+                />
+                {searchVal && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchVal("")}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
             </div>
-            
-            {/* Optional filter placeholder */}
-            <div className="flex items-center gap-2">
-              <select className="rounded-xl border border-slate-200 bg-slate-50/50 py-2 px-3 text-xs outline-none text-slate-500 font-semibold cursor-not-allowed" disabled>
-                <option>All Statuses</option>
-              </select>
-            </div>
+
+            {/* Filter Bar */}
+            <DuaFilterBar
+              categories={initialCategories}
+              filters={{
+                status: statusFilter,
+                visibility: visibilityFilter,
+                category: categoryFilter,
+                type: contentTypeFilter,
+              }}
+              onFilterChange={(key, value) => updateFilters({ [key]: value })}
+              onReset={() => {
+                setSearchVal("");
+                updateFilters({
+                  q: null,
+                  status: null,
+                  visibility: null,
+                  category: null,
+                  type: null,
+                });
+              }}
+            />
           </div>
 
           {/* Main split explorer content */}
@@ -240,13 +422,15 @@ export function DuaLibraryClient({ initialBooks, initialCategories }: DuaLibrary
             {/* Left Tree Navigator */}
             <div className="lg:col-span-2 space-y-4">
               <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100/60 max-h-[70vh] overflow-y-auto pr-2">
-                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 pl-1">Content Explorer</h3>
                 <DuaTree
                   books={filteredBooks}
                   selectedId={selectedId}
                   selectedType={selectedType}
                   onSelectNode={handleSelectNode}
-                  isSearching={isSearching}
+                  expandedIds={expandedIds}
+                  onToggleExpand={handleToggleExpand}
+                  onExpandAll={handleExpandAll}
+                  onCollapseAll={handleCollapseAll}
                 />
               </div>
             </div>
