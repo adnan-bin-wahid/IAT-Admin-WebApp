@@ -1,6 +1,12 @@
+import { useState } from "react";
 import { StatusBadge } from "@/components/common/status-badge";
 import { Calendar, Eye, EyeOff, Edit, Plus, Archive, Check } from "lucide-react";
 import { DuaBookWithIndexes, DuaIndexWithItems, DuaItemWithCategory } from "@/types/dua";
+import { BookFormDialog } from "./book-form-dialog";
+import { ArchiveConfirmDialog } from "./archive-confirm-dialog";
+import { publishDuaBook, unpublishDuaBook } from "@/server/actions/dua-book-actions";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface DuaDetailPanelProps {
   selectedType: "book" | "index" | "dua" | null;
@@ -32,6 +38,38 @@ function DetailRow({ label, value, bnValue, isTextarea = false }: { label: strin
 }
 
 export function DuaDetailPanel({ selectedType, selectedItem }: DuaDetailPanelProps) {
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+
+  const handlePublish = async () => {
+    if (selectedType !== "book" || !selectedItem) return;
+    setIsPublishing(true);
+    try {
+      await publishDuaBook(selectedItem.id);
+      toast.success("Book published successfully");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to publish book";
+      toast.error(message);
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const handleUnpublish = async () => {
+    if (selectedType !== "book" || !selectedItem) return;
+    setIsPublishing(true);
+    try {
+      await unpublishDuaBook(selectedItem.id);
+      toast.success("Book unpublished successfully");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to unpublish book";
+      toast.error(message);
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
   if (!selectedType || !selectedItem) return null;
 
   const formatDate = (dateString: Date | string) => {
@@ -154,17 +192,59 @@ export function DuaDetailPanel({ selectedType, selectedItem }: DuaDetailPanelPro
 
       {/* Action Buttons Panel */}
       <div className="mt-8 pt-4 border-t border-slate-100 flex flex-wrap gap-3">
-        {isBook && (
+        {isBook && book && (
           <>
-            <button className="flex-1 min-w-[120px] bg-slate-50 text-slate-400 border border-slate-200 cursor-not-allowed font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5" disabled>
+            <button
+              onClick={() => setIsEditOpen(true)}
+              className="flex-1 min-w-[120px] bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+            >
               <Edit className="h-3.5 w-3.5" /> Edit Book
             </button>
-            <button className="flex-1 min-w-[120px] bg-slate-50 text-slate-400 border border-slate-200 cursor-not-allowed font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5" disabled>
+            <button
+              className="flex-1 min-w-[120px] bg-slate-50 text-slate-400 border border-slate-200 cursor-not-allowed font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5"
+              disabled
+            >
               <Plus className="h-3.5 w-3.5" /> Add Index
             </button>
-            <button className="flex-1 min-w-[120px] bg-slate-50 text-slate-400 border border-slate-200 cursor-not-allowed font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5" disabled>
+            <button
+              onClick={() => setIsArchiveOpen(true)}
+              disabled={book.status === "archived"}
+              className={cn(
+                "flex-1 min-w-[120px] font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5",
+                book.status === "archived"
+                  ? "bg-slate-50 text-slate-300 border border-slate-100 cursor-not-allowed"
+                  : "bg-white border border-red-100 text-red-600 hover:bg-red-50 cursor-pointer"
+              )}
+            >
               <Archive className="h-3.5 w-3.5" /> Archive Book
             </button>
+            {book.status === "published" ? (
+              <button
+                onClick={handleUnpublish}
+                disabled={isPublishing}
+                className="flex-1 min-w-[120px] bg-[#022c22] text-white hover:opacity-90 font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {isPublishing ? (
+                  <span className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin shrink-0" />
+                ) : (
+                  <Check className="h-3.5 w-3.5" />
+                )}
+                Unpublish
+              </button>
+            ) : (
+              <button
+                onClick={handlePublish}
+                disabled={isPublishing}
+                className="flex-1 min-w-[120px] bg-[#022c22] text-white hover:opacity-90 font-semibold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {isPublishing ? (
+                  <span className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin shrink-0" />
+                ) : (
+                  <Check className="h-3.5 w-3.5" />
+                )}
+                Publish Book
+              </button>
+            )}
           </>
         )}
 
@@ -196,6 +276,37 @@ export function DuaDetailPanel({ selectedType, selectedItem }: DuaDetailPanelPro
           </>
         )}
       </div>
+
+      {isBook && book && (
+        <>
+          <BookFormDialog
+            isOpen={isEditOpen}
+            onClose={() => setIsEditOpen(false)}
+            initialData={{
+              id: book.id,
+              nameBn: book.nameBn,
+              nameEn: book.nameEn,
+              slug: book.slug,
+              subtitleBn: book.subtitleBn || "",
+              subtitleEn: book.subtitleEn || "",
+              descriptionBn: book.descriptionBn || "",
+              descriptionEn: book.descriptionEn || "",
+              icon: book.icon || "BookOpen",
+              coverImage: book.coverImage || "",
+              accentColor: book.accentColor || "#022c22",
+              displayOrder: book.displayOrder,
+              status: book.status as "draft" | "published" | "archived",
+              isVisibleInApp: book.isVisibleInApp,
+            }}
+          />
+          <ArchiveConfirmDialog
+            isOpen={isArchiveOpen}
+            onClose={() => setIsArchiveOpen(false)}
+            bookId={book.id}
+            bookName={book.nameEn}
+          />
+        </>
+      )}
     </div>
   );
 }

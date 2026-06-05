@@ -7,6 +7,8 @@ import { DuaDetailPanel } from "./dua-detail-panel";
 import { DuaEmptyState } from "./dua-empty-state";
 import { Search, Plus } from "lucide-react";
 import { DuaBookWithIndexes, DuaIndexWithItems, DuaItemWithCategory } from "@/types/dua";
+import { BookFormDialog } from "./book-form-dialog";
+import { Toaster } from "sonner";
 
 interface DuaLibraryClientProps {
   initialBooks: DuaBookWithIndexes[];
@@ -15,17 +17,42 @@ interface DuaLibraryClientProps {
 export function DuaLibraryClient({ initialBooks }: DuaLibraryClientProps) {
   const [selectedType, setSelectedType] = useState<"book" | "index" | "dua" | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [selectedItem, setSelectedItem] = useState<DuaBookWithIndexes | DuaIndexWithItems | DuaItemWithCategory | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isAddBookOpen, setIsAddBookOpen] = useState(false);
+
+  // Resolve selectedItem during render to avoid synchronous state synchronization in useEffect
+  let selectedItem: DuaBookWithIndexes | DuaIndexWithItems | DuaItemWithCategory | null = null;
+  if (selectedId && selectedType) {
+    if (selectedType === "book") {
+      selectedItem = initialBooks.find((b) => b.id === selectedId) || null;
+    } else if (selectedType === "index") {
+      for (const book of initialBooks) {
+        const idx = book.indexes.find((i) => i.id === selectedId);
+        if (idx) {
+          selectedItem = idx;
+          break;
+        }
+      }
+    } else if (selectedType === "dua") {
+      for (const book of initialBooks) {
+        for (const idx of book.indexes) {
+          const d = idx.duaItems.find((item) => item.id === selectedId);
+          if (d) {
+            selectedItem = d;
+            break;
+          }
+        }
+        if (selectedItem) break;
+      }
+    }
+  }
 
   const handleSelectNode = (
     type: "book" | "index" | "dua",
-    id: string,
-    data: DuaBookWithIndexes | DuaIndexWithItems | DuaItemWithCategory
+    id: string
   ) => {
     setSelectedType(type);
     setSelectedId(id);
-    setSelectedItem(data);
   };
 
   // Client-side search algorithm
@@ -95,13 +122,16 @@ export function DuaLibraryClient({ initialBooks }: DuaLibraryClientProps) {
         description="Manage books, indexes, and dua content for the mobile app"
         actions={
           <div className="flex flex-wrap gap-2">
-            <button className="bg-[#022c22] text-white opacity-80 cursor-not-allowed font-medium py-1.5 px-3 rounded-xl text-xs shadow-sm flex items-center gap-1" disabled>
+            <button
+              onClick={() => setIsAddBookOpen(true)}
+              className="bg-[#022c22] text-white hover:opacity-90 font-medium py-1.5 px-3 rounded-xl text-xs shadow-sm flex items-center gap-1 cursor-pointer"
+            >
               <Plus className="h-3.5 w-3.5" /> Book
             </button>
-            <button className="bg-[#022c22] text-white opacity-80 cursor-not-allowed font-medium py-1.5 px-3 rounded-xl text-xs shadow-sm flex items-center gap-1" disabled>
+            <button className="bg-slate-100 text-slate-400 cursor-not-allowed font-medium py-1.5 px-3 rounded-xl text-xs border border-slate-200/50 flex items-center gap-1" disabled>
               <Plus className="h-3.5 w-3.5" /> Index
             </button>
-            <button className="bg-[#022c22] text-white opacity-80 cursor-not-allowed font-medium py-1.5 px-3 rounded-xl text-xs shadow-sm flex items-center gap-1" disabled>
+            <button className="bg-slate-100 text-slate-400 cursor-not-allowed font-medium py-1.5 px-3 rounded-xl text-xs border border-slate-200/50 flex items-center gap-1" disabled>
               <Plus className="h-3.5 w-3.5" /> Dua
             </button>
           </div>
@@ -154,6 +184,12 @@ export function DuaLibraryClient({ initialBooks }: DuaLibraryClientProps) {
           )}
         </div>
       </div>
+
+      <BookFormDialog
+        isOpen={isAddBookOpen}
+        onClose={() => setIsAddBookOpen(false)}
+      />
+      <Toaster richColors position="top-right" />
     </div>
   );
 }
