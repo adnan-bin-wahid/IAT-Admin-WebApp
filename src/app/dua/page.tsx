@@ -1,10 +1,11 @@
-import { getDuaTree } from "@/server/queries/dua-queries";
+import { getDuaTree, getDuaCategoriesWithCounts } from "@/server/queries/dua-queries";
 import { DuaLibraryClient } from "@/components/dua/dua-library-client";
 
 export const revalidate = 0;
 
 export default async function DuaLibraryPage() {
   const books = await getDuaTree();
+  const categories = await getDuaCategoriesWithCounts();
 
-  return <DuaLibraryClient initialBooks={books} />;
+  return <DuaLibraryClient initialBooks={books} initialCategories={categories} />;
 }

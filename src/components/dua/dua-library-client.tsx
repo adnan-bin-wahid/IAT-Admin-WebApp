@@ -6,21 +6,27 @@ import { DuaTree } from "./dua-tree";
 import { DuaDetailPanel } from "./dua-detail-panel";
 import { DuaEmptyState } from "./dua-empty-state";
 import { Search, Plus } from "lucide-react";
-import { DuaBookWithIndexes, DuaIndexWithItems, DuaItemWithCategory } from "@/types/dua";
+import { DuaBookWithIndexes, DuaIndexWithItems, DuaItemWithCategory, DuaCategoryWithCount } from "@/types/dua";
 import { BookFormDialog } from "./book-form-dialog";
 import { IndexFormDialog } from "./index-form-dialog";
+import { CategoryFormDialog } from "./category-form-dialog";
+import { CategoryList } from "./category-list";
 import { Toaster } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface DuaLibraryClientProps {
   initialBooks: DuaBookWithIndexes[];
+  initialCategories: DuaCategoryWithCount[];
 }
 
-export function DuaLibraryClient({ initialBooks }: DuaLibraryClientProps) {
+export function DuaLibraryClient({ initialBooks, initialCategories }: DuaLibraryClientProps) {
   const [selectedType, setSelectedType] = useState<"book" | "index" | "dua" | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddBookOpen, setIsAddBookOpen] = useState(false);
   const [isAddIndexOpen, setIsAddIndexOpen] = useState(false);
+  const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
+  const [activeView, setActiveView] = useState<"tree" | "categories">("tree");
 
   // Resolve selectedItem during render to avoid synchronous state synchronization in useEffect
   let selectedItem: DuaBookWithIndexes | DuaIndexWithItems | DuaItemWithCategory | null = null;
@@ -136,77 +142,120 @@ export function DuaLibraryClient({ initialBooks }: DuaLibraryClientProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header and Add Actions Placeholders */}
+      {/* Header and Add Actions */}
       <PageHeader
         title="Dua Library"
-        description="Manage books, indexes, and dua content for the mobile app"
+        description="Manage books, indexes, categories, and dua content for the mobile app"
         actions={
           <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setIsAddBookOpen(true)}
-              className="bg-[#022c22] text-white hover:opacity-90 font-medium py-1.5 px-3 rounded-xl text-xs shadow-sm flex items-center gap-1 cursor-pointer"
-            >
-              <Plus className="h-3.5 w-3.5" /> Book
-            </button>
-            <button
-              onClick={() => setIsAddIndexOpen(true)}
-              className="bg-[#022c22] text-white hover:opacity-90 font-medium py-1.5 px-3 rounded-xl text-xs shadow-sm flex items-center gap-1 cursor-pointer"
-            >
-              <Plus className="h-3.5 w-3.5" /> Index
-            </button>
-            <button className="bg-slate-100 text-slate-400 cursor-not-allowed font-medium py-1.5 px-3 rounded-xl text-xs border border-slate-200/50 flex items-center gap-1" disabled>
-              <Plus className="h-3.5 w-3.5" /> Dua
-            </button>
+            {activeView === "tree" ? (
+              <>
+                <button
+                  onClick={() => setIsAddBookOpen(true)}
+                  className="bg-[#022c22] text-white hover:opacity-90 font-medium py-1.5 px-3 rounded-xl text-xs shadow-sm flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Book
+                </button>
+                <button
+                  onClick={() => setIsAddIndexOpen(true)}
+                  className="bg-[#022c22] text-white hover:opacity-90 font-medium py-1.5 px-3 rounded-xl text-xs shadow-sm flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Index
+                </button>
+                <button className="bg-slate-100 text-slate-400 cursor-not-allowed font-medium py-1.5 px-3 rounded-xl text-xs border border-slate-200/50 flex items-center gap-1" disabled>
+                  <Plus className="h-3.5 w-3.5" /> Dua
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setIsAddCategoryOpen(true)}
+                className="bg-[#022c22] text-white hover:opacity-90 font-medium py-1.5 px-3 rounded-xl text-xs shadow-sm flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5" /> Category
+              </button>
+            )}
           </div>
         }
       />
 
-      {/* Top Search Controls */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search books, indexes, duas..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2 pl-10 pr-4 text-sm outline-none transition-all placeholder:text-slate-400 focus:border-emerald-700 focus:bg-white focus:ring-1 focus:ring-emerald-700/20"
-          />
-        </div>
-        
-        {/* Optional filter placeholder */}
-        <div className="flex items-center gap-2">
-          <select className="rounded-xl border border-slate-200 bg-slate-50/50 py-2 px-3 text-xs outline-none text-slate-500 font-semibold cursor-not-allowed" disabled>
-            <option>All Statuses</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Main split explorer content */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
-        {/* Left Tree Navigator */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100/60 max-h-[70vh] overflow-y-auto pr-2">
-            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 pl-1">Content Explorer</h3>
-            <DuaTree
-              books={filteredBooks}
-              selectedId={selectedId}
-              selectedType={selectedType}
-              onSelectNode={handleSelectNode}
-              isSearching={isSearching}
-            />
-          </div>
-        </div>
-
-        {/* Right Inspector Panel */}
-        <div className="lg:col-span-3 min-h-[50vh]">
-          {selectedType && selectedItem ? (
-            <DuaDetailPanel selectedType={selectedType} selectedItem={selectedItem} books={bookOptions} />
-          ) : (
-            <DuaEmptyState />
+      {/* Sub-tab view switcher */}
+      <div className="flex border-b border-slate-100 gap-6">
+        <button
+          onClick={() => setActiveView("tree")}
+          className={cn(
+            "pb-3 text-xs font-bold border-b-2 transition-all outline-none cursor-pointer",
+            activeView === "tree"
+              ? "border-emerald-700 text-emerald-800"
+              : "border-transparent text-slate-400 hover:text-slate-600"
           )}
-        </div>
+        >
+          Library Tree
+        </button>
+        <button
+          onClick={() => setActiveView("categories")}
+          className={cn(
+            "pb-3 text-xs font-bold border-b-2 transition-all outline-none cursor-pointer",
+            activeView === "categories"
+              ? "border-emerald-700 text-emerald-800"
+              : "border-transparent text-slate-400 hover:text-slate-600"
+          )}
+        >
+          Categories
+        </button>
       </div>
+
+      {activeView === "tree" ? (
+        <>
+          {/* Top Search Controls */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between gap-4">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search books, indexes, duas..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2 pl-10 pr-4 text-sm outline-none transition-all placeholder:text-slate-400 focus:border-emerald-700 focus:bg-white focus:ring-1 focus:ring-emerald-700/20"
+              />
+            </div>
+            
+            {/* Optional filter placeholder */}
+            <div className="flex items-center gap-2">
+              <select className="rounded-xl border border-slate-200 bg-slate-50/50 py-2 px-3 text-xs outline-none text-slate-500 font-semibold cursor-not-allowed" disabled>
+                <option>All Statuses</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Main split explorer content */}
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
+            {/* Left Tree Navigator */}
+            <div className="lg:col-span-2 space-y-4">
+              <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100/60 max-h-[70vh] overflow-y-auto pr-2">
+                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 pl-1">Content Explorer</h3>
+                <DuaTree
+                  books={filteredBooks}
+                  selectedId={selectedId}
+                  selectedType={selectedType}
+                  onSelectNode={handleSelectNode}
+                  isSearching={isSearching}
+                />
+              </div>
+            </div>
+
+            {/* Right Inspector Panel */}
+            <div className="lg:col-span-3 min-h-[50vh]">
+              {selectedType && selectedItem ? (
+                <DuaDetailPanel selectedType={selectedType} selectedItem={selectedItem} books={bookOptions} />
+              ) : (
+                <DuaEmptyState />
+              )}
+            </div>
+          </div>
+        </>
+      ) : (
+        <CategoryList categories={initialCategories} />
+      )}
 
       <BookFormDialog
         isOpen={isAddBookOpen}
@@ -218,6 +267,11 @@ export function DuaLibraryClient({ initialBooks }: DuaLibraryClientProps) {
         onClose={() => setIsAddIndexOpen(false)}
         books={bookOptions}
         defaultBookId={defaultBookId}
+      />
+
+      <CategoryFormDialog
+        isOpen={isAddCategoryOpen}
+        onClose={() => setIsAddCategoryOpen(false)}
       />
       
       <Toaster richColors position="top-right" />

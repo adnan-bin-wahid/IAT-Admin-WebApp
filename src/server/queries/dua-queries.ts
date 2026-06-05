@@ -141,6 +141,24 @@ export async function getAllDuaCategories() {
 }
 
 /**
+ * Gets all categories with counts of related duas, sorted by slug.
+ */
+export async function getDuaCategoriesWithCounts() {
+  return prisma.duaCategory.findMany({
+    orderBy: {
+      slug: "asc",
+    },
+    include: {
+      _count: {
+        select: {
+          duaItems: true,
+        },
+      },
+    },
+  });
+}
+
+/**
  * Gets all indexes (chapters/sections) for a specific book.
  */
 export async function getIndexesByBookId(bookId: string) {

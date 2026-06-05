@@ -21,3 +21,10 @@ export interface DuaBookWithIndexes extends DuaBook {
     duaItems: number;
   };
 }
+
+export interface DuaCategoryWithCount extends DuaCategory {
+  _count?: {
+    duaItems: number;
+  };
+}
+
