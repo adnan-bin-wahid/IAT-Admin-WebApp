@@ -37,12 +37,12 @@ const duaItemFormSchema = z.object({
   benefitsEn: z.string().optional().nullable(),
   notesBn: z.string().optional().nullable(),
   notesEn: z.string().optional().nullable(),
-  repeatCount: z.preprocess((val) => Number(val), z.number().int().min(1, "Repeat count must be at least 1")),
+  repeatCount: z.number().int().min(1, "Repeat count must be at least 1"),
   tagsBnString: z.string().optional().nullable(),
   tagsEnString: z.string().optional().nullable(),
   searchKeywordsBn: z.string().optional().nullable(),
   searchKeywordsEn: z.string().optional().nullable(),
-  displayOrder: z.preprocess((val) => val === "" || val === undefined || val === null ? 0 : Number(val), z.number().int().default(0)),
+  displayOrder: z.number().int().default(0),
   status: z.enum(["draft", "published", "archived"]).default("draft"),
   isVisibleInApp: z.boolean().default(true),
 });
@@ -364,7 +364,7 @@ export function DuaItemForm({
               <input
                 type="number"
                 min="1"
-                {...register("repeatCount")}
+                {...register("repeatCount", { valueAsNumber: true })}
                 className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700/20"
               />
               {errors.repeatCount && (
@@ -379,7 +379,7 @@ export function DuaItemForm({
               <label className="text-xs font-bold text-slate-500">Display Order</label>
               <input
                 type="number"
-                {...register("displayOrder")}
+                {...register("displayOrder", { valueAsNumber: true })}
                 className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700/20"
               />
               {errors.displayOrder && (
