@@ -1,0 +1,153 @@
+datasource db {
+  provider  = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum DuaStatus {
+  draft
+  published
+  archived
+}
+
+model DuaBook {
+  id              String      @id @default(cuid())
+  nameBn          String
+  nameEn          String
+  subtitleBn      String?
+  subtitleEn      String?
+  descriptionBn   String?     @db.Text
+  descriptionEn   String?     @db.Text
+  slug            String      @unique
+  icon            String?
+  coverImage      String?
+  accentColor     String?
+  displayOrder    Int         @default(0)
+  status          DuaStatus   @default(draft)
+  isVisibleInApp  Boolean     @default(true)
+  version         Int         @default(1)
+  publishedAt     DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  indexes         DuaIndex[]
+  duaItems        DuaItem[]
+
+  // Indexes
+  @@index([status])
+  @@index([displayOrder])
+  @@index([isVisibleInApp])
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model DuaIndex {
+  id              String      @id @default(cuid())
+  bookId          String
+  titleBn         String
+  titleEn         String
+  subtitleBn      String?
+  subtitleEn      String?
+  descriptionBn   String?     @db.Text
+  descriptionEn   String?     @db.Text
+  slug            String
+  icon            String?
+  displayOrder    Int         @default(0)
+  status          DuaStatus   @default(draft)
+  isVisibleInApp  Boolean     @default(true)
+  version         Int         @default(1)
+  publishedAt     DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  book            DuaBook     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  duaItems        DuaItem[]
+
+  // Constraints
+  @@unique([bookId, slug])
+
+  // Indexes
+  @@index([bookId])
+  @@index([status])
+  @@index([displayOrder])
+  @@index([isVisibleInApp])
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model DuaCategory {
+  id              String      @id @default(cuid())
+  nameBn          String
+  nameEn          String
+  descriptionBn   String?     @db.Text
+  descriptionEn   String?     @db.Text
+  slug            String      @unique
+  icon            String?
+  color           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  duaItems        DuaItem[]
+
+  // Indexes
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model DuaItem {
+  id                  String      @id @default(cuid())
+  bookId              String
+  indexId             String
+  categoryId          String
+  titleBn             String
+  titleEn             String
+  shortDescriptionBn  String?     @db.Text
+  shortDescriptionEn  String?     @db.Text
+  arabicText          String?     @db.Text
+  banglaMeaning       String?     @db.Text
+  englishMeaning      String?     @db.Text
+  transliterationBn   String?     @db.Text
+  transliterationEn   String?     @db.Text
+  referenceBn         String?     @db.Text
+  referenceEn         String?     @db.Text
+  benefitsBn          String?     @db.Text
+  benefitsEn          String?     @db.Text
+  notesBn             String?     @db.Text
+  notesEn             String?     @db.Text
+  repeatCount         Int         @default(1)
+  tagsBn              String[]
+  tagsEn              String[]
+  searchKeywordsBn    String?     @db.Text
+  searchKeywordsEn    String?     @db.Text
+  slug                String
+  displayOrder        Int         @default(0)
+  status              DuaStatus   @default(draft)
+  isVisibleInApp      Boolean     @default(true)
+  version             Int         @default(1)
+  publishedAt         DateTime?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  // Relations
+  book                DuaBook     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  index               DuaIndex    @relation(fields: [indexId], references: [id], onDelete: Cascade)
+  category            DuaCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  // Constraints
+  @@unique([indexId, slug])
+
+  // Indexes
+  @@index([bookId])
+  @@index([indexId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([displayOrder])
+  @@index([isVisibleInApp])
+  @@index([createdAt])
+  @@index([updatedAt])
+}
